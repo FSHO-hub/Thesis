@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bamberg Population Stats</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* General styles */
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(120deg, #f3f4f7, #e2e3e9);
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #444;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .chart-container {
+            background: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .chart-container.large {
+            flex: 2;
+            max-width: 700px;
+        }
+
+        .chart-container.small {
+            flex: 1;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .tile {
+            display: inline-block;
+            width: 220px;
+            margin: 10px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .tile h2 {
+            margin: 0;
+            font-size: 22px;
+            color: #333;
+        }
+
+        .tile p {
+            margin: 5px 0 0;
+            font-size: 16px;
+            color: #666;
+        }
+
+        svg {
+            background-color: #fff;
+        }
+
+        .bar {
+            fill: #6baed6;
+            transition: fill 0.3s ease, transform 0.2s ease;
+        }
+
+        .bar:hover {
+            fill: #ff9933;
+            transform: scale(1.05);
+        }
+
+        .axis-label {
+            font-size: 14px;
+            font-weight: bold;
+            fill: #555;
+        }
+
+        .tick text {
+            font-size: 12px;
+            fill: #555;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            visibility: hidden;
+        }
+
+        .histogram-label {
+            font-size: 12px;
+            font-weight: bold;
+            fill: #444;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bamberg Population Distribution</h1>
+    <div class="container">
+        <div class="chart-container large">
+            <svg id="main-chart" width="700" height="400"></svg>
+        </div>
+        <div class="chart-container small" id="details-container">
+            <div class="tile" id="german-tile">
+                <h2 id="german-count">0</h2>
+                <p>German Population</p>
+            </div>
+            <div class="tile" id="foreign-tile">
+                <h2 id="foreign-count">0</h2>
+                <p>Foreign Population</p>
+            </div>
+            <svg id="age-histogram" width="400" height="200"></svg>
+        </div>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        const margin = { top: 40, right: 30, bottom: 60, left: 80 },
+              mainWidth = 700 - margin.left - margin.right,
+              mainHeight = 400 - margin.top - margin.bottom;
+
+        const tooltip = d3.select("#tooltip");
+
+        // Main Chart
+        const svg = d3.select("#main-chart")
+                      .attr("width", mainWidth + margin.left + margin.right)
+                      .attr("height", mainHeight + margin.top + margin.bottom)
+                      .append("g")
+                      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        d3.csv("bamberg_population_stats.csv").then(data => {
+            data.forEach(d => {
+                d.Total = +d.Total;
+                d.Male = +d.Male;
+                d.Female = +d.Female;
+                d["Nationality (German)"] = +d["Nationality (German)"];
+                d["Nationality (Foreign)"] = +d["Nationality (Foreign)"];
+                d["Age < 3"] = +d["Age < 3"];
+                d["Age 3-5"] = +d["Age 3-5"];
+                d["Age 6-9"] = +d["Age 6-9"];
+                d["Age 10-15"] = +d["Age 10-15"];
+                d["Age 16-18"] = +d["Age 16-18"];
+                d["Age 19-24"] = +d["Age 19-24"];
+                d["Age 25-39"] = +d["Age 25-39"];
+                d["Age 40-59"] = +d["Age 40-59"];
+                d["Age 60-66"] = +d["Age 60-66"];
+                d["Age 67-74"] = +d["Age 67-74"];
+                d["Age 75+"] = +d["Age 75+"];
+            });
+
+            const y = d3.scaleBand()
+                        .range([0, mainHeight])
+                        .domain(['Total', 'Male', 'Female'])
+                        .padding(0.3);
+
+            svg.append("g")
+               .call(d3.axisLeft(y).tickSizeOuter(0))
+               .attr("class", "y-axis");
+
+            const x = d3.scaleLinear()
+                        .domain([0, d3.max(data, d => Math.max(d.Total, d.Male, d.Female))])
+                        .nice()
+                        .range([0, mainWidth]);
+
+            svg.append("g")
+               .attr("transform", `translate(0,${mainHeight})`)
+               .call(d3.axisBottom(x).ticks(6).tickSizeOuter(0))
+               .attr("class", "x-axis");
+
+            const categories = ['Total', 'Male', 'Female'];
+            svg.selectAll(".bar")
+               .data(categories)
+               .enter()
+               .append("rect")
+               .attr("class", "bar")
+               .attr("x", 0)
+               .attr("y", d => y(d))
+               .attr("width", d => x(data[0][d]))
+               .attr("height", y.bandwidth())
+               .on("mouseover", function(event, d) {
+                   const value = data[0][d];
+                   tooltip.style("visibility", "visible")
+                          .style("left", `${event.pageX + 10}px`)
+                          .style("top", `${event.pageY}px`)
+                          .text(`${d}: ${value}`);
+               })
+               .on("mouseout", () => tooltip.style("visibility", "hidden"))
+               .on("click", function(event, d) {
+                   if (d === 'Total') {
+                       showDetails();
+                   }
+               });
+
+            svg.append("text")
+               .attr("class", "axis-label")
+               .attr("x", mainWidth / 2)
+               .attr("y", mainHeight + margin.bottom - 20)
+               .style("text-anchor", "middle")
+               .text("Population");
+
+            svg.append("text")
+               .attr("class", "axis-label")
+               .attr("transform", "rotate(-90)")
+               .attr("y", -margin.left + 20)
+               .attr("x", -mainHeight / 2)
+               .style("text-anchor", "middle")
+               .text("Population Category");
+
+            function showDetails() {
+                document.getElementById("german-count").textContent = data[0]["Nationality (German)"];
+                document.getElementById("foreign-count").textContent = data[0]["Nationality (Foreign)"];
+
+                renderAgeHistogram();
+            }
+
+            function renderAgeHistogram() {
+                const ageRanges = [
+                    { group: "Children", value: data[0]["Age < 3"] + data[0]["Age 3-5"] + data[0]["Age 6-9"] + data[0]["Age 10-15"], fullLabel: "Children (0-16)" },
+                    { group: "Young Adults", value: data[0]["Age 16-18"] + data[0]["Age 19-24"], fullLabel: "Young Adults (17-30)" },
+                    { group: "Middle-aged Adults", value: data[0]["Age 25-39"], fullLabel: "Middle-aged Adults (31-45)" },
+                    { group: "Old Adults", value: data[0]["Age 40-59"] + data[0]["Age 60-66"] + data[0]["Age 67-74"] + data[0]["Age 75+"], fullLabel: "Old Adults (Above 45)" }
+                ];
+
+                const histMargin = { top: 20, right: 20, bottom: 40, left: 50 };
+                const histWidth = 400 - histMargin.left - histMargin.right;
+                const histHeight = 200 - histMargin.top - histMargin.bottom;
+
+                const histSvg = d3.select("#age-histogram")
+                                  .html("")
+                                  .append("g")
+                                  .attr("transform", `translate(${histMargin.left},${histMargin.top})`);
+
+                const x = d3.scaleBand()
+                            .domain(ageRanges.map(d => d.group))
+                            .range([0, histWidth])
+                            .padding(0.1);
+
+                const y = d3.scaleLinear()
+                            .domain([0, d3.max(ageRanges, d => d.value)])
+                            .nice()
+                            .range([histHeight, 0]);
+
+                histSvg.append("g")
+                       .attr("transform", `translate(0,${histHeight})`)
+                       .call(d3.axisBottom(x).tickSizeOuter(0))
+                       .selectAll("text")
+                       .style("font-size", "10px"); // Make text smaller
+
+                histSvg.append("g")
+                       .call(d3.axisLeft(y).ticks(5));
+
+                histSvg.selectAll(".bar")
+                       .data(ageRanges)
+                       .enter()
+                       .append("rect")
+                       .attr("class", "bar")
+                       .attr("x", d => x(d.group))
+                       .attr("y", d => y(d.value))
+                       .attr("width", x.bandwidth())
+                       .attr("height", d => histHeight - y(d.value))
+                       .on("mouseover", function(event, d) {
+                           tooltip.style("visibility", "visible")
+                                  .style("left", `${event.pageX + 10}px`)
+                                  .style("top", `${event.pageY}px`)
+                                  .text(`${d.fullLabel}: ${d.value}`);
+                       })
+                       .on("mouseout", () => tooltip.style("visibility", "hidden"));
+            }
+        });
+    </script>
+</body>
+</html>

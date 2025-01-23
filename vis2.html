@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Population Growth Rate in Bamberg</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f9;
+        }
+        h2 {
+            margin: 20px 0;
+        }
+        #container {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+        #chart {
+            flex: 2;
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #infoBox {
+            flex: 1;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: #f9f9f9;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 5px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+        }
+        .highlighted-line {
+            fill: none;
+            stroke: orange;
+            stroke-width: 3px;
+            cursor: pointer;
+        }
+        .highlighted-line-covid {
+            fill: none;
+            stroke: red;
+            stroke-width: 3px;
+            cursor: pointer;
+        }
+        .axis-label {
+            font-size: 14px;
+        }
+        .button-container {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .grid-x .tick line, .grid-y .tick line {
+            stroke: #ccc;
+            stroke-width: 1;
+            opacity: 0.7;
+        }
+        .grid line {
+            stroke: #ccc;
+            stroke-width: 1;
+            opacity: 0.7;
+            shape-rendering: crispEdges;
+        }
+        .grid path {
+            stroke-width: 0;
+        }
+    </style>
+</head>
+<body>
+    <h2>Population Growth Rate in Bamberg</h2>
+    <div class="button-container">
+        <label>
+            <input type="checkbox" id="gridToggleCheckbox"> Show Grid
+        </label>
+        <button id="howToUseButton">How to Use</button>
+    </div>
+    <div id="container">
+        <div id="chart"></div>
+        <div id="infoBox">
+            <p id="infoText">Click on highlighted segments for more information.</p>
+        </div>
+    </div>
+
+    <script>
+        // Set dimensions
+        const margin = { top: 20, right: 30, bottom: 50, left: 60 },
+              width = 600 - margin.left - margin.right,
+              height = 400 - margin.top - margin.bottom;
+
+        // Create SVG container
+        const svg = d3.select("#chart")
+                      .append("svg")
+                      .attr("width", width + margin.left + margin.right)
+                      .attr("height", height + margin.top + margin.bottom)
+                      .append("g")
+                      .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        // Create tooltip
+        const tooltip = d3.select("body").append("div")
+                          .attr("class", "tooltip")
+                          .style("opacity", 0);
+
+        // Load data
+        d3.csv("simplified_population_growth.csv").then(data => {
+            // Parse data
+            data.forEach(d => {
+                d.Year = +d.Year;
+                d.GrowthRate = +d.GrowthRate;
+            });
+
+            // Set scales
+            const x = d3.scaleLinear()
+                        .domain(d3.extent(data, d => d.Year))
+                        .range([0, width]);
+
+            const y = d3.scaleLinear()
+                        .domain([d3.min(data, d => d.GrowthRate), d3.max(data, d => d.GrowthRate)])
+                        .nice()
+                        .range([height, 0]);
+
+            // Add axes
+            svg.append("g")
+               .attr("transform", `translate(0, ${height})`)
+               .call(d3.axisBottom(x).ticks(10).tickFormat(d3.format("d")));
+
+            svg.append("g")
+               .call(d3.axisLeft(y).tickFormat(d3.format(".2%")));
+
+            // Add line
+            const line = d3.line()
+                           .x(d => x(d.Year))
+                           .y(d => y(d.GrowthRate));
+
+            svg.append("path")
+               .datum(data)
+               .attr("class", "line")
+               .attr("d", line)
+               .style("stroke", "steelblue")
+               .style("fill", "none")
+               .style("stroke-width", 2);
+
+            // Highlight line segment (2012-2016)
+            const highlightedData = data.filter(d => d.Year >= 2012 && d.Year <= 2016);
+
+            svg.append("path")
+               .datum(highlightedData)
+               .attr("class", "highlighted-line")
+               .attr("d", line)
+               .on("click", () => {
+                   d3.select("#infoBox")
+                     .style("border", "3px solid orange");
+                   d3.select("#infoText")
+                   .html('Brose, a leading automotive supplier, announced the opening of a new office in 2012, which was completed in 2016. This new facility employs around 600 people and is part of Brose ongoing expansion efforts to enhance its production capabilities and support its growing customer base <a href="https://www.brose.com/us-en/careers/">Read more</a> <img src="op.jpeg" alt="Brose" style="display: block; margin: 20px auto;">');
+
+               });
+
+            // Highlight line segment (2020-2022)
+            const highlightedDataCovid = data.filter(d => d.Year >= 2020 && d.Year <= 2022);
+
+            svg.append("path")
+               .datum(highlightedDataCovid)
+               .attr("class", "highlighted-line-covid")
+               .attr("d", line)
+               .on("click", () => {
+                   d3.select("#infoBox")
+                     .style("border", "3px solid red");
+                     d3.select("#infoText")
+                     .html('Urban population growth halted during the COVID-19 pandemic. This was a significant shift from the pre-pandemic trend of increasing urbanization. However, there was a strong rebound in urban population growth between mid-2021 and mid-2022 <a href="">Read more</a> <img src="covid.jpeg" alt="Urban population during COVID-19" style="display: block; margin: 20px auto;">');
+               });
+
+            // Add labels
+            svg.append("text")
+               .attr("x", width / 2)
+               .attr("y", height + margin.bottom - 10)
+               .attr("text-anchor", "middle")
+               .attr("class", "axis-label")
+               .text("Year");
+
+            svg.append("text")
+               .attr("transform", "rotate(-90)")
+               .attr("x", -height / 2)
+               .attr("y", -margin.left + 15)
+               .attr("text-anchor", "middle")
+               .attr("class", "axis-label")
+               .text("Growth Rate");
+
+            // Tooltip functionality
+            svg.selectAll(".highlighted-line, .highlighted-line-covid")
+               .on("mouseover", (event, d) => {
+                   tooltip.transition()
+                          .duration(200)
+                          .style("opacity", .9);
+                   tooltip.html("Click to learn more")
+                          .style("left", (event.pageX + 5) + "px")
+                          .style("top", (event.pageY - 28) + "px");
+               })
+               .on("mouseout", () => {
+                   tooltip.transition()
+                          .duration(500)
+                          .style("opacity", 0);
+               });
+
+            // Add gridlines function
+            function makeGridlines(scale) {
+                return d3.axisBottom(scale)
+                    .ticks(10);
+            }
+
+            // Add X gridlines
+            svg.append("g")
+                .attr("class", "grid")
+                .attr("transform", `translate(0,${height})`)
+                .call(makeGridlines(x)
+                    .tickSize(-height)
+                    .tickFormat("")
+                );
+
+            // Add Y gridlines
+            svg.append("g")
+                .attr("class", "grid")
+                .call(makeGridlines(y)
+                    .tickSize(-width)
+                    .tickFormat("")
+                );
+
+        }).catch(error => {
+            console.error("Error loading the data: ", error);
+        });
+
+        document.getElementById("gridToggleCheckbox").addEventListener("change", (event) => {
+            const isChecked = event.target.checked;
+            if (isChecked) {
+                // Show gridlines
+                svg.selectAll(".grid").style("display", "block");
+            } else {
+                // Hide gridlines
+                svg.selectAll(".grid").style("display", "none");
+            }
+        });
+
+        document.getElementById("howToUseButton").addEventListener("click", () => {
+            alert("Click on the highlighted lines to see specific information in the info box. Use the 'Show Grid' button to toggle gridlines.");
+        });
+    </script>
+</body>
+</html>

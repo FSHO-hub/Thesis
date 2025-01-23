@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rental Prices Scatter Plot</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .axis path, .axis line {
+            fill: none;
+            shape-rendering: crispEdges;
+        }
+        .axis text {
+            font-size: 12px;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+            pointer-events: none;
+            font-size: 12px;
+        }
+        #year-selector {
+            margin: 20px;
+        }
+        .legend {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <label for="year-selector">Select Year:</label>
+        <select id="year-selector"></select>
+    </div>
+    <div id="chart"></div>
+
+    <script>
+        // Dimensions and margins
+        const margin = { top: 20, right: 30, bottom: 50, left: 50 };
+        const width = 800 - margin.left - margin.right;
+        const height = 600 - margin.top - margin.bottom;
+
+        // Append SVG
+        const svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Tooltip
+        const tooltip = d3.select("body")
+            .append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Load data
+        d3.csv("rentalprices.csv").then(data => {
+            // Parse data
+            data.forEach(d => {
+                d["Apartment Size"] = +d["Apartment Size"];
+                d.Price = +d.Price;
+                d.Year = +d.Year; // Assuming the CSV includes a 'Year' column
+            });
+
+            // Get unique years
+            const years = [...new Set(data.map(d => d.Year))];
+
+            // Populate dropdown
+            const yearSelector = d3.select("#year-selector");
+            yearSelector.selectAll("option")
+                .data(years)
+                .enter()
+                .append("option")
+                .attr("value", d => d)
+                .text(d => d);
+
+            // Scales
+            const x = d3.scaleLinear()
+                .domain([d3.min(data, d => d["Apartment Size"]) - 10, d3.max(data, d => d["Apartment Size"]) + 10])
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.Price) + 5])
+                .range([height, 0]);
+
+            const color = d3.scaleOrdinal(d3.schemeCategory10)
+                .domain([...new Set(data.map(d => d.Region))]);
+
+            // Axes
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x));
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Labels
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .attr("text-anchor", "middle")
+                .text("Apartment Size (sqm)");
+
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", -margin.left + 10)
+                .attr("text-anchor", "middle")
+                .text("Price (€/sqm)");
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -10)
+                .attr("text-anchor", "middle")
+                .style("font-size", "16px")
+                .style("text-decoration", "underline")
+                .text("Rental Prices Scatter Plot");
+
+            // Legend
+            const legend = svg.selectAll(".legend")
+                .data(color.domain())
+                .enter().append("g")
+                .attr("class", "legend")
+                .attr("transform", (d, i) => `translate(0,${i * 20})`);
+
+            legend.append("rect")
+                .attr("x", width - 18)
+                .attr("width", 18)
+                .attr("height", 18)
+                .style("fill", color);
+
+            legend.append("text")
+                .attr("x", width - 24)
+                .attr("y", 9)
+                .attr("dy", ".35em")
+                .style("text-anchor", "end")
+                .text(d => d);
+
+            // Update plot
+            function updatePlot(selectedYear) {
+                // Filter data by year
+                const filteredData = data.filter(d => d.Year === selectedYear);
+
+                // Bind data to circles
+                const circles = svg.selectAll("circle")
+                    .data(filteredData);
+
+                // Remove old elements
+                circles.exit().remove();
+
+                // Update existing elements
+                circles
+                    .attr("cx", d => x(d["Apartment Size"]))
+                    .attr("cy", d => y(d.Price))
+                    .attr("r", 5)
+                    .attr("fill", d => color(d.Region));
+
+                // Add new elements
+                circles.enter()
+                    .append("circle")
+                    .attr("cx", d => x(d["Apartment Size"]))
+                    .attr("cy", d => y(d.Price))
+                    .attr("r", 5)
+                    .attr("fill", d => color(d.Region))
+                    .on("mouseover", (event, d) => {
+                        tooltip.transition().duration(200).style("opacity", 0.9);
+                        tooltip.html(`Region: ${d.Region}<br>Size: ${d["Apartment Size"]} sqm<br>Price: €${d.Price}/sqm`)
+                            .style("left", (event.pageX + 10) + "px")
+                            .style("top", (event.pageY - 20) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.transition().duration(500).style("opacity", 0);
+                    });
+            }
+
+            // Initial plot with the first year
+            updatePlot(years[0]);
+
+            // Listen for dropdown change
+            yearSelector.on("change", function () {
+                const selectedYear = +this.value;
+                updatePlot(selectedYear);
+            });
+        });
+    </script>
+</body>
+</html>

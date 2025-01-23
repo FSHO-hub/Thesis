@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bamberg Population Visualizations</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f9f9f9;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center; /* Center the remaining chart */
+            width: 100%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+
+        .chart-container {
+            width: 48%;
+            background: #fff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        svg {
+            background-color: #fff;
+        }
+
+        .bar {
+            fill: #6baed6;
+            transition: fill 0.3s ease, transform 0.2s ease;
+        }
+
+        .bar:hover {
+            fill: #ff9933;
+            transform: scale(1.05);
+        }
+
+        .axis-label {
+            font-size: 14px;
+            font-weight: bold;
+            fill: #555;
+        }
+
+        .tick text {
+            font-size: 12px;
+            fill: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bamberg Population Visualizations</h1>
+    <div class="container">
+        <!-- First chart container -->
+        <div class="chart-container">
+            <svg id="chart1" width="500" height="400"></svg>
+        </div>
+    </div>
+    <script>
+        // Set dimensions for the chart
+        const margin = { top: 40, right: 30, bottom: 60, left: 80 },
+              width = 500 - margin.left - margin.right,
+              height = 400 - margin.top - margin.bottom;
+
+        // Select the SVG
+        const svg1 = d3.select("#chart1")
+                       .append("g")
+                       .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Load data
+        d3.csv("bamberg_population_stats.csv").then(data => {
+            // Convert numeric values
+            data.forEach(d => {
+                d.Total = +d.Total;
+                d.Male = +d.Male;
+                d.Female = +d.Female;
+            });
+
+            // Data for the chart
+            const categories = ['Total', 'Male', 'Female'];
+
+            // Scales for the chart
+            const x1 = d3.scaleLinear()
+                         .domain([0, d3.max(data, d => Math.max(d.Total, d.Male, d.Female))])
+                         .nice()
+                         .range([0, width]);
+
+            const y1 = d3.scaleBand()
+                         .range([0, height])
+                         .domain(categories)
+                         .padding(0.3);
+
+            // Add axes for the chart
+            svg1.append("g").call(d3.axisLeft(y1).tickSizeOuter(0));
+            svg1.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x1).ticks(6));
+
+            // Bars for the chart
+            svg1.selectAll(".bar")
+                .data(categories)
+                .enter()
+                .append("rect")
+                .attr("class", "bar")
+                .attr("x", 0)
+                .attr("y", d => y1(d))
+                .attr("width", d => x1(data[0][d]))
+                .attr("height", y1.bandwidth());
+
+            // X-axis label for the chart
+            svg1.append("text")
+                .attr("class", "axis-label")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 20)
+                .style("text-anchor", "middle")
+                .text("Population");
+
+            // Y-axis label for the chart
+            svg1.append("text")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 20)
+                .attr("x", -height / 2)
+                .style("text-anchor", "middle")
+                .text("Population Category");
+        });
+    </script>
+</body>
+</html>

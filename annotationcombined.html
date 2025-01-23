@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Annotations</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            display: flex;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+        #controls {
+            width: 20%;
+            padding: 20px;
+            background: #f3f3f3;
+            border-right: 1px solid #ccc;
+        }
+        #controls h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #444;
+        }
+        #controls label {
+            display: block;
+            margin-bottom: 10px;
+            cursor: pointer;
+            color: #555;
+        }
+        #controls input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        #chart-container {
+            width: 60%;
+            position: relative;
+            padding: 20px;
+            background: #ffffff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        #info-panel {
+            width: 20%;
+            padding: 20px;
+            background: #f3f3f3;
+            border-left: 1px solid #ccc;
+        }
+        #info-panel h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #444;
+        }
+        #source-info {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .line {
+            fill: none;
+            stroke-width: 3px;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #aaa;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+            font-size: 14px;
+            display: none;
+        }
+        img {
+            max-width: 100%;
+            margin-top: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        .info-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .info-container img {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="controls">
+            <h3>Select Energy Sources</h3>
+            <div id="energy-select">
+                <label><input type="checkbox" value="bio" checked> Biomass</label>
+                <label><input type="checkbox" value="hydropower" checked> Hydropower</label>
+                <label><input type="checkbox" value="other" checked> Other</label>
+                <label><input type="checkbox" value="photovoltaics" checked> Photovoltaics</label>
+                <label><input type="checkbox" value="wind" checked> Wind</label>
+                <label><input type="checkbox" value="consumption" checked> Total Consumption</label>
+            </div>
+        </div>
+        <div id="chart-container">
+            <div id="chart"></div>
+            <div class="tooltip"></div>
+        </div>
+        <div id="info-panel">
+            <h3>Energy Source Details</h3>
+            <p id="source-info">Click on a line to see details.</p>
+            <img id="source-image" src="" alt="Energy Source Image">
+        </div>
+    </div>
+    <script>
+        const data = [
+            { year: 2020, bio: 339.79, hydropower: 50.12, other: 81.29, photovoltaics: 126.97, wind: 484.46, consumption: 1659.04 },
+            { year: 2021, bio: 331.13, hydropower: 85.57, other: 62.03, photovoltaics: 405.47, wind: 479.22, consumption: 1533.69 },
+            { year: 2022, bio: 324.28, hydropower: 138.83, other: 21.29, photovoltaics: 516.86, wind: 545.91, consumption: 1518.89 },
+            { year: 2023, bio: 309.36, hydropower: 69.77, other: 150.56, photovoltaics: 460.41, wind: 487.78, consumption: 1451.08 },
+            { year: 2024, bio: 318.56, hydropower: 79.25, other: 142.28, photovoltaics: 587.19, wind: 418.50, consumption: 1454.90 },
+            { year: 2025, bio: 268.94, hydropower: 185.54, other: 11.78, photovoltaics: 264.81, wind: 1448.85, consumption: 1397.37 }
+        ];
+
+        const images = {
+            bio: "eco-light_12735275.png",
+            hydropower: "water-energy_3658194.png",
+            other: "other.png",
+            photovoltaics: "solar.png",
+            wind: "wind-power_8772523.png",
+            consumption: "Totalenergy.png"
+        };
+        const descriptions = {
+            bio: "Biomass energy is a renewable source derived from organic materials such as wood, agricultural residues, and animal waste. It can be used for heating, electricity generation, and even biofuels.",
+            hydropower: "Hydropower harnesses the movement of water to generate electricity. It is one of the oldest and most reliable renewable energy sources.",
+            other: "Other renewable energy sources include geothermal, tidal, and experimental technologies that harness Earth's natural forces to produce sustainable power.",
+            photovoltaics: "Photovoltaic technology converts sunlight directly into electricity using semiconductor materials. It is highly scalable and rapidly growing.",
+            wind: "Wind energy captures the kinetic energy of moving air to generate electricity through wind turbines. It is a clean and sustainable power source.",
+            consumption: "Total energy consumption reflects the overall demand for energy across various sectors, helping to understand and strategize energy needs."
+        };
+
+        const margin = { top: 50, right: 50, bottom: 50, left: 70 };
+        const width = 800 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        const svg = d3.select("#chart").append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear().domain(d3.extent(data, d => d.year)).range([0, width]);
+        const y = d3.scaleLinear().domain([0, d3.max(data, d => Math.max(d.bio, d.hydropower, d.other, d.photovoltaics, d.wind, d.consumption))]).range([height, 0]);
+
+        svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x).tickFormat(d3.format("d")));
+        svg.append("g").call(d3.axisLeft(y));
+
+        const colors = {
+            bio: "#66c2a5",
+            hydropower: "#fc8d62",
+            other: "#8da0cb",
+            photovoltaics: "#e78ac3",
+            wind: "#a6d854",
+            consumption: "#ffd92f"
+        };
+
+        function updateChart() {
+            const selectedSources = Array.from(document.querySelectorAll("#energy-select input:checked")).map(el => el.value);
+            svg.selectAll(".line").remove();
+
+            selectedSources.forEach(key => {
+                svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", colors[key])
+                    .attr("stroke-width", 2.5)
+                    .attr("d", d3.line().x(d => x(d.year)).y(d => y(d[key])))
+                    .attr("class", "line")
+                    .on("click", () => {
+                        document.getElementById("source-info").innerText = descriptions[key];
+                        document.getElementById("source-image").src = images[key];
+                        document.getElementById("source-image").style.display = "block";
+                    });
+            });
+        }
+
+        document.querySelectorAll("#energy-select input").forEach(el => el.addEventListener("change", updateChart));
+        updateChart();
+    </script>
+</body>
+</html>
