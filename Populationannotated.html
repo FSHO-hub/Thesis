@@ -124,6 +124,9 @@
 </head>
 <body>
     <h1>Bamberg Population Distribution</h1>
+    <div id="click-note" style="display: none; position: absolute; top: 20px; right: 20px; background: #dfd50d; padding: 7px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+        <p>Click on the "Total" bar to see more detailed information.</p>
+    </div>
     <div class="container">
         <div class="chart-container large">
             <svg id="main-chart" width="700" height="400"></svg>
@@ -295,6 +298,18 @@
                        .on("mouseout", () => tooltip.style("visibility", "hidden"));
             }
         });
+
+          // Show the note when the visualization loads
+          window.onload = function() {
+            const note = document.getElementById('click-note');
+            note.style.display = 'block';
+
+            // Hide the note after a few seconds
+            setTimeout(() => {
+                note.style.display = 'none';
+            }, 5000);
+        };
+
     </script>
 </body>
 </html>
